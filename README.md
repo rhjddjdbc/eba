@@ -13,7 +13,7 @@
 - Displays the first 40 entries of the symbol table.
 - Lists suspicious function names (e.g., `malloc`, `system`, `strcpy`) found in strings.
 - Shows first 40 lines of disassembly using `objdump`.
-- Interactive viewer to display hex dumps of selected ELF sections with color-coded output.
+- Interactive viewer to display hex dumps of selected ELF sections.
 
 ## Dependencies
 

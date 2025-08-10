@@ -34,7 +34,25 @@ Install dependencies via pacman:
 sudo pacman -S binutils python less coreutils
 ````
 
+## Build
+
+To compile the helper binaries (`disasm` and `elf_info`), simply run:
+
+```bash
+make
+```
+
+This will build the binaries inside the `bin/` directory.
+
 ## Usage
+
+First, make the analysis script executable (if not already):
+
+```bash
+chmod +x analyze.sh
+```
+
+Then run the script with:
 
 ```bash
 ./analyze.sh -f <path_to_elf_binary>
@@ -60,10 +78,9 @@ After the initial analysis, the script prompts you to enter a section name to di
 │   └── elf_info
 ├── disasm.c          # C source for disassembler binary
 ├── elf_info.c        # C source for elf info binary
-├── Makefile          # Build script
+└── Makefile          # Build script
 ```
-
 
 ## License
 
-VaultX is licensed under the **GNU General Public License v3.0** (GPL‑3.0). See the `LICENSE` file for details.
+eba is licensed under the **GNU General Public License v3.0** (GPL‑3.0). See the `LICENSE` file for details.

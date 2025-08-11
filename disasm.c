@@ -18,19 +18,27 @@ int main(int argc, char **argv) {
     }
 
     unsigned char *buffer = malloc(MAX_CODE_SIZE);
-    fread(buffer, 1, MAX_CODE_SIZE, f);
+    if (!buffer) {
+        perror("malloc");
+        fclose(f);
+        return 1;
+    }
+
+    size_t n = fread(buffer, 1, MAX_CODE_SIZE, f);
     fclose(f);
 
     csh handle;
     cs_insn *insn;
-    size_t count;eba — ELF Binaries Analyser
+    size_t count;
 
-    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+        free(buffer);
         return -1;
+    }
 
-    count = cs_disasm(handle, buffer, MAX_CODE_SIZE, 0x0, 0, &insn);
+    count = cs_disasm(handle, buffer, n, 0x0, 20, &insn);
     if (count > 0) {
-        for (size_t j = 0; j < 20 && j < count; j++) {
+        for (size_t j = 0; j < count; j++) {
             printf("0x%"PRIx64":\t%s\t\t%s\n",
                    insn[j].address, insn[j].mnemonic, insn[j].op_str);
         }

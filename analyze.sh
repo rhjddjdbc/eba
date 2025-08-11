@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Example: ./analyze.sh -f /bin/ls
-# Simple ELF analysis script with interactive section hexdump
-# Includes colored output for section flags
-
 if [[ "$1" != "-f" || -z "$2" ]]; then
   echo "Usage: $0 -f <filename>"
   exit 1
@@ -21,38 +17,6 @@ echo "=== [*] ELF Header ==="
 readelf -h "$filename"
 
 echo
-
-# Define colors (ANSI codes)
-GREEN='\033[0;32m'    # A - green
-RED='\033[0;31m'      # W - red
-BLUE='\033[0;34m'     # X - blue
-YELLOW='\033[0;33m'   # M - yellow
-ORANGE='\033[38;5;208m' # S - orange (256 colors)
-RESET='\033[0m'
-
-# Function to color flags
-color_flags() {
-  local flags="$1"
-  local out=""
-
-  # Remove whitespace
-  flags="${flags// /}"
-
-  for (( i=0; i<${#flags}; i++ )); do
-    f="${flags:i:1}"
-    case "$f" in
-      A) out+="${GREEN}A${RESET}" ;;
-      W) out+="${RED}W${RESET}" ;;
-      X) out+="${BLUE}X${RESET}" ;;
-      M) out+="${YELLOW}M${RESET}" ;;
-      S) out+="${ORANGE}S${RESET}" ;;
-      *) out+="$f" ;;
-    esac
-  done
-
-  echo -e "$out"
-}
-
 echo "--- Sections ---"
 readelf -W -S "$filename"
 
@@ -65,7 +29,6 @@ echo "=== [*] Entropy ==="
 entropy=$(python3 -c "
 import sys, math
 from collections import Counter
-
 with open('$filename', 'rb') as f:
     data = f.read()
 c = Counter(data)
@@ -83,8 +46,21 @@ echo "=== [*] Heuristics (suspicious strings) ==="
 grep -E 'malloc|free|system|exec|shell|strcpy' <(strings "$filename") | sort -u
 
 echo
-echo "=== [*] Disassembly (first 40 lines) ==="
-objdump -d "$filename" | head -40
+echo "=== [*] Disassembly (first 20 instructions) ==="
+./bin/disasm "$filename"
+
+echo
+echo "=== [*] Section Headers ==="
+./bin/sections "$filename"
+
+echo "=== [*] Entropy per Section ==="
+./bin/entropy_sections "$filename"
+
+echo "=== [*] Shared Library Dependencies (DT_NEEDED) ==="
+./bin/list_dtneeded "$filename"
+
+echo "=== [*] File SHA256 Hash ==="
+./bin/hash_sha256 "$filename"
 
 # Function to display a section using hexdump
 show_section() {
@@ -117,13 +93,11 @@ show_section() {
 
   printf "${cyan}=== Section ${green}%s${cyan} (Offset: 0x%s, Size: 0x%s) ===${reset}\n" "$section_name" "$offset_hex" "$size_hex"
 
-  # Hexdump with color and less -R
   dd if="$file" bs=1 skip=$offset count=$size 2>/dev/null | hexdump -C | less -R
 
   echo
 }
 
-# Interactive section viewer
 echo "=== [*] Section Viewer ==="
 echo "Type section name to view hexdump, or 'q' to quit:"
 

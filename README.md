@@ -2,85 +2,94 @@
 
 ## Overview
 
-**eba** is a lightweight shell script tool designed to analyze ELF (Executable and Linkable Format) binaries on Linux systems. It provides detailed information about ELF headers, sections, symbols, strings, entropy, and disassembly. Additionally, it features an interactive section viewer with a colored hex dump output.
+**eba** is a lightweight shell script and C-based toolkit for analyzing ELF (Executable and Linkable Format) binaries on Linux. It provides comprehensive insights into ELF header information, section details, embedded strings, entropy analysis, symbol tables, disassembly, and more. The tool also includes an interactive hex viewer for ELF sections.
 
 ## Features
 
-- Displays ELF header details using `readelf`.
-- Lists sections with their flags.
-- Shows first 10 printable strings inside the binary.
-- Calculates the entropy of the binary to estimate randomness.
-- Displays the first 40 entries of the symbol table.
-- Lists suspicious function names (e.g., `malloc`, `system`, `strcpy`) found in strings.
-- Shows first 40 lines of disassembly using `objdump`.
-- Interactive viewer to display hex dumps of selected ELF sections.
+* Displays ELF header summary.
+* Lists ELF sections with detailed information.
+* Extracts and shows the first 10 printable strings.
+* Calculates overall entropy of the binary.
+* Calculates entropy for each section.
+* Displays first 40 entries of the symbol table.
+* Detects suspicious function names (e.g., malloc, system, strcpy) in strings.
+* Shows disassembly of the first 20 instructions using Capstone.
+* Lists shared library dependencies (DT\_NEEDED entries).
+* Computes SHA256 hash of the binary.
+* Interactive section viewer with colored hex dump output.
 
 ## Dependencies
 
-- `bash`
-- `readelf` (from `binutils`)
-- `objdump` (from `binutils`)
-- `strings` (from `binutils`)
-- `hexdump`
-- `python3` (for entropy calculation)
-- `dd`
-- `less`
+* `bash`
+* `readelf` (from binutils)
+* `strings` (from binutils)
+* `hexdump`
+* `dd`
+* `less`
+* `python3` (used for entropy calculation in the script)
+* `gcc` (for compiling helper C programs)
+* `libcapstone` (for disassembly)
+* `libcrypto` (OpenSSL, for SHA256 hashing)
 
-### Arch Linux
+### Installing on common distributions
 
-Install dependencies via pacman:
+* On Debian/Ubuntu:
 
 ```bash
-sudo pacman -S binutils python less coreutils
-````
+sudo apt-get install build-essential binutils python3 libcapstone-dev libssl-dev less
+```
 
-## Build
+* On Arch Linux:
 
-To compile the helper binaries (`disasm` and `elf_info`), simply run:
+```bash
+sudo pacman -S base-devel binutils python less openssl capstone
+```
+
+## Building the tool
+
+Run the following command to compile the helper binaries:
 
 ```bash
 make
 ```
 
-This will build the binaries inside the `bin/` directory.
+This will build the helper programs into the `bin/` directory.
 
 ## Usage
 
-First, make the analysis script executable (if not already):
+Make the main analysis script executable if not already:
 
 ```bash
 chmod +x analyze.sh
 ```
 
-Then run the script with:
+Run the script with the ELF file to analyze:
 
 ```bash
-./analyze.sh -f <path_to_elf_binary>
+./analyze.sh -f /path/to/elf_binary
 ```
 
-Example:
-
-```bash
-./analyze.sh -f /bin/ls
-```
-
-## Interactive Section Viewer
-
-After the initial analysis, the script prompts you to enter a section name to display its hex dump. Enter the section name (e.g., `.text`, `.data`) and press Enter. Type `q` to quit the viewer.
+The script outputs various analysis details and then enters an interactive mode where you can enter section names to view their hex dumps. Type `q` to quit the viewer.
 
 ## Project Structure
 
 ```
 .
-├── analyze.sh        # Main analysis script
-├── bin               # Compiled helper binaries (disassembler, elf info)
-│   ├── disasm
-│   └── elf_info
-├── disasm.c          # C source for disassembler binary
-├── elf_info.c        # C source for elf info binary
-└── Makefile          # Build script
+├── analyze.sh          # Main shell script to run the analysis
+├── bin/                # Compiled helper binaries
+│   ├── disasm          # Disassembler using Capstone
+│   ├── entropy_sections # Entropy calculation per section
+│   ├── hash_sha256     # SHA256 hash calculator
+│   ├── list_dtneeded   # Lists shared library dependencies
+│   └── sections        # Prints section headers
+├── disasm.c            # Source code for disassembler
+├── entropy_sections.c  # Source for entropy per section
+├── hash_sha256.c       # Source for SHA256 hashing
+├── list_dtneeded.c     # Source for shared library dependencies
+├── sections.c          # Source for section headers
+└── Makefile            # Build script
 ```
 
 ## License
 
-eba is licensed under the **GNU General Public License v3.0** (GPL‑3.0). See the `LICENSE` file for details.
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the `LICENSE` file for details.

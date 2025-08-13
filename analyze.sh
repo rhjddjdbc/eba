@@ -8,24 +8,45 @@ fi
 filename="$2"
 
 echo "Analyzing $filename..."
+echo
 
-# --- File Info (simplified) ---
+# --- [1] Basic File Info ---
+echo "=== [*] File Type ==="
 file "$filename"
 
+echo
+echo "=== [*] File SHA256 Hash ==="
+./bin/hash_sha256 "$filename"
+
+# --- [2] ELF Structure Overview ---
 echo
 echo "=== [*] ELF Header ==="
 readelf -h "$filename"
 
 echo
-echo "--- Sections ---"
-readelf -W -S "$filename"
+echo "=== [*] Section Headers ==="
+./bin/sections "$filename"
 
+echo
+echo "=== [*] Symbol Table (first 40 entries) ==="
+readelf -s "$filename" | head -40
+
+echo
+echo "=== [*] Shared Library Dependencies (DT_NEEDED) ==="
+./bin/list_dtneeded "$filename"
+
+# --- [3] Strings and Heuristics ---
 echo
 echo "=== [*] Strings (first 10) ==="
 strings "$filename" | head -10
 
 echo
-echo "=== [*] Entropy ==="
+echo "=== [*] Heuristics (suspicious strings) ==="
+grep -E 'malloc|free|system|exec|shell|strcpy' <(strings "$filename") | sort -u
+
+# --- [4] Entropy Analysis ---
+echo
+echo "=== [*] Overall Entropy ==="
 entropy=$(python3 -c "
 import sys, math
 from collections import Counter
@@ -38,31 +59,19 @@ print(entropy)
 echo "$entropy"
 
 echo
-echo "=== [*] Symbol Table (first 40 entries) ==="
-readelf -s "$filename" | head -40
+echo "=== [*] Entropy per Section ==="
+./bin/entropy_sections "$filename"
 
-echo
-echo "=== [*] Heuristics (suspicious strings) ==="
-grep -E 'malloc|free|system|exec|shell|strcpy' <(strings "$filename") | sort -u
-
+# --- [5] Disassembly ---
 echo
 echo "=== [*] Disassembly (first 20 instructions) ==="
 ./bin/disasm "$filename"
 
+# --- [6] Section Hex Viewer ---
 echo
-echo "=== [*] Section Headers ==="
-./bin/sections "$filename"
+echo "=== [*] Section Viewer ==="
+echo "Type section name to view hexdump, or 'q' to quit:"
 
-echo "=== [*] Entropy per Section ==="
-./bin/entropy_sections "$filename"
-
-echo "=== [*] Shared Library Dependencies (DT_NEEDED) ==="
-./bin/list_dtneeded "$filename"
-
-echo "=== [*] File SHA256 Hash ==="
-./bin/hash_sha256 "$filename"
-
-# Function to display a section using hexdump
 show_section() {
   local file=$1
   local section_name=$2
@@ -97,9 +106,6 @@ show_section() {
 
   echo
 }
-
-echo "=== [*] Section Viewer ==="
-echo "Type section name to view hexdump, or 'q' to quit:"
 
 while true; do
   read -rp "> " section_name

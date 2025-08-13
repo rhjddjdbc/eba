@@ -19,10 +19,21 @@ void print_section_headers(FILE *f, Elf64_Ehdr header) {
     fread(shstrtab, 1, shdr.sh_size, f);
 
     fseek(f, header.e_shoff, SEEK_SET);
+
+    printf("%-4s | %-20s | %-15s | %-18s | %-10s | %-10s\n", 
+           "Nr", "Name", "Typ", "Adresse", "Offset", "Größe");
+    printf("------------------------------------------------------------------------------------------------\n");
+
     for (int i = 0; i < header.e_shnum; i++) {
         fread(&shdr, 1, sizeof(shdr), f);
-        printf("Section: %-20s | Type: %u | Addr: 0x%lx | Offset: 0x%lx | Size: 0x%lx\n",
-               &shstrtab[shdr.sh_name], shdr.sh_type, shdr.sh_addr, shdr.sh_offset, shdr.sh_size);
+
+        printf("%-4d | %-20s | %-15u | 0x%016lx | 0x%08lx | 0x%08lx\n",
+               i,
+               &shstrtab[shdr.sh_name],
+               shdr.sh_type,
+               shdr.sh_addr,
+               shdr.sh_offset,
+               shdr.sh_size);
     }
 
     free(shstrtab);

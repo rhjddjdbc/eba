@@ -61,7 +61,6 @@ int main(int argc, char *argv[]) {
 
     printf("Entry point: 0x%lx\n", header.e_entry);
     printf("Machine: %d | Type: %d | Section count: %d\n", header.e_machine, header.e_type, header.e_shnum);
-    printf("\n--- Sections ---\n");
     print_section_headers(f, header);
     fclose(f);
     return 0;

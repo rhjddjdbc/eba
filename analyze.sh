@@ -1,7 +1,42 @@
 #!/bin/bash
 
+show_help() {
+  cat <<EOF
+eba — ELF Binaries Analyser
+
+Usage: $0 -f <filename>
+
+Options:
+  -f <file>       Specify the ELF binary to analyze
+  -h, --help      Show this help message and exit
+
+Example:
+  $0 -f ./some_binary
+
+Description:
+  This tool performs various analysis steps on an ELF file, including:
+    - SHA256 hash computation
+    - ELF headers and section info
+    - Shared library dependencies
+    - Entropy analysis
+    - Disassembly of first 20 instructions
+    - Heuristics based on string matching
+    - Interactive section hex viewer
+
+Dependencies:
+  Requires: bash, readelf, strings, hexdump, dd, less, python3,
+            gcc, libcapstone, libssl (OpenSSL)
+EOF
+}
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_help
+  exit 0
+fi
+
 if [[ "$1" != "-f" || -z "$2" ]]; then
   echo "Usage: $0 -f <filename>"
+  echo "Use --help for more options."
   exit 1
 fi
 

@@ -4,34 +4,38 @@ LDFLAGS =
 LIBS =
 
 HASH_LIBS = -lcrypto
+CAPSTONE_LIBS = -lcapstone
+MATH_LIBS = -lm
 
 BIN_DIR = bin
+SOURCES = entropy_sections.c list_dtneeded.c hash_sha256.c disasm.c sections.c
+TARGETS = $(BIN_DIR)/entropy_sections \
+          $(BIN_DIR)/list_dtneeded \
+          $(BIN_DIR)/hash_sha256 \
+          $(BIN_DIR)/disasm \
+          $(BIN_DIR)/sections
 
-all: prepare_bin_dir entropy_sections list_dtneeded hash_sha256 disasm sections move_bins
+all: $(BIN_DIR) $(TARGETS)
 
-prepare_bin_dir:
-	mkdir -p $(BIN_DIR)
+$(BIN_DIR):
+	mkdir -p $@
 
-entropy_sections: entropy_sections.c
-	$(CC) $(CFLAGS) -o $@ $^ -lm
+$(BIN_DIR)/entropy_sections: entropy_sections.c | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $< $(MATH_LIBS)
 
-list_dtneeded: list_dtneeded.c
-	$(CC) $(CFLAGS) -o $@ $^
+$(BIN_DIR)/list_dtneeded: list_dtneeded.c | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $<
 
-hash_sha256: hash_sha256.c
-	$(CC) $(CFLAGS) -o $@ $^ $(HASH_LIBS)
+$(BIN_DIR)/hash_sha256: hash_sha256.c | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $< $(HASH_LIBS)
 
-disasm: disasm.c
-	$(CC) $(CFLAGS) -o $@ $^ -lcapstone
+$(BIN_DIR)/disasm: disasm.c | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $< $(CAPSTONE_LIBS)
 
-sections: sections.c
-	$(CC) $(CFLAGS) -o $@ $^
-
-move_bins: entropy_sections list_dtneeded hash_sha256 disasm sections
-	mv entropy_sections list_dtneeded hash_sha256 disasm sections $(BIN_DIR)/
+$(BIN_DIR)/sections: sections.c | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
 	rm -rf $(BIN_DIR)
-	rm -f entropy_sections list_dtneeded hash_sha256 disasm sections
 
-.PHONY: all clean prepare_bin_dir move_bins
+.PHONY: all clean

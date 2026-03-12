@@ -1,4 +1,4 @@
-# eba — ELF Binaries Analyser
+# eba - ELF Binaries Analyser
 
 ## Overview
 

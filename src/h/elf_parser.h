@@ -18,6 +18,18 @@ typedef struct {
     char *hex_section;
     int show_section_entropy;
     int show_section_headers;
+
+    int disasm_all;
+    int disasm_init;
+    int disasm_fini;
+    int disasm_text;
+    int disasm_plt;
+    int disasm_got;
+    int disasm_rodata;
+    int disasm_data_rel_ro;
+    int disasm_eh_frame;
+    int disasm_init_array;
+    int disasm_fini_array;
 } AnalyzerConfig;
 
 int load_config(const char *filename, AnalyzerConfig *cfg);

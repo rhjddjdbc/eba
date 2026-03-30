@@ -1,8 +1,10 @@
 #include "h/elf_parser.h"
-#include <string.h>
-#include <stdlib.h>
+#include "h/elf_context.h"
+#include "h/common.h"
 #include <stdio.h>
-#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>   
 
 static void trim_whitespace(char *str) {
     char *start = str;
@@ -33,7 +35,6 @@ int load_config(const char *filename, AnalyzerConfig *cfg) {
         }
         return 0;
     }
-
     char line[256];
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\n")] = '\0';

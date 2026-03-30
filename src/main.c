@@ -27,8 +27,7 @@ static void handle_error(const char *msg, int fatal) {
     if (fatal) exit(EXIT_FAILURE);
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     AnalyzerConfig cfg = {0};
 
     static struct option long_options[] = {
@@ -106,22 +105,19 @@ int main(int argc, char **argv)
 
     const char *filename = argv[optind];
 
-    // Check if file exists and is readable
     FILE *test_f = fopen(filename, "rb");
     if (!test_f) {
         handle_error("Cannot open file", 1);
     }
     fclose(test_f);
 
-    // Initialize ELF Context
     ElfContext ctx;
-    if (init_elf_context(&ctx, filename) != 0) {   // <- FIX: != 0 statt !
+    if (init_elf_context(&ctx, filename) != 0) {
         free(cfg.output_dir);
         if (cfg.hex_section) free(cfg.hex_section);
         handle_error("Failed to initialize ELF context", 1);
     }
 
-    // If hexview mode, show section and exit
     if (cfg.hex_section) {
         hexview_section(&ctx, cfg.hex_section);
         free_elf_context(&ctx);
@@ -130,50 +126,45 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // Load config
     load_config("config.ini", &cfg);
 
     if (!cfg.output_dir)
         cfg.output_dir = strdup("output");
 
-    // Create timestamp and output structure if JSON is enabled
     FILE *json_out = NULL;
-    char output_dir[4096] = {0};
-    char json_dir[4096] = {0};
-    
+    char output_dir[MAX_PATH_LEN] = {0};
+    char json_dir[MAX_PATH_LEN] = {0};
+
     if (cfg.output_json) {
         time_t t = time(NULL);
         struct tm *tm_info = localtime(&t);
         char timestr[64];
         strftime(timestr, sizeof(timestr), "%Y-%m-%d_%H-%M-%S", tm_info);
-        
+
         const char *name = strrchr(filename, '/');
         name = name ? name + 1 : filename;
-        
-        // Remove any path from filename for directory name
+
         char clean_name[256];
         strncpy(clean_name, name, sizeof(clean_name) - 1);
         clean_name[sizeof(clean_name) - 1] = '\0';
-        
-        // Create output structure
-        char base_dir[4096];
+
+        char base_dir[MAX_PATH_LEN];
         strncpy(base_dir, cfg.output_dir, sizeof(base_dir) - 1);
         base_dir[sizeof(base_dir) - 1] = '\0';
-        
-        // Ensure trailing slash
+
         size_t len = strlen(base_dir);
         if (len > 0 && base_dir[len-1] != '/') {
             strncat(base_dir, "/", sizeof(base_dir) - len - 1);
         }
-        
+
         mkdir(base_dir, 0755);
         snprintf(output_dir, sizeof(output_dir), "%s%s_%s", base_dir, clean_name, timestr);
         mkdir(output_dir, 0755);
-        
+
         snprintf(json_dir, sizeof(json_dir), "%s/json", output_dir);
         mkdir(json_dir, 0755);
-        
-        char json_path[4096];
+
+        char json_path[MAX_PATH_LEN];
         snprintf(json_path, sizeof(json_path), "%s/analysis.json", json_dir);
         json_out = fopen(json_path, "w");
         if (!json_out) {
@@ -181,10 +172,10 @@ int main(int argc, char **argv)
             json_out = stdout;
         } else {
             fprintf(json_out, "{\n");
-            fprintf(json_out, " \"file\": \"%s\",\n", filename);
-            fprintf(json_out, " \"entry_point\": \"0x%" PRIx64 "\",\n", ctx.ehdr.e_entry);
-            fprintf(json_out, " \"analyzer_version\": \"%s\",\n", VERSION);
-            fprintf(json_out, " \"timestamp\": \"%s\",\n", timestr);
+            fprintf(json_out, "  \"file\": \"%s\",\n", filename);
+            fprintf(json_out, "  \"entry_point\": \"0x%" PRIx64 "\",\n", ctx.ehdr.e_entry);
+            fprintf(json_out, "  \"analyzer_version\": \"%s\",\n", VERSION);
+            fprintf(json_out, "  \"timestamp\": \"%s\",\n", timestr);
         }
     } else {
         printf(CYAN "=== ELF Binary Analyzer v%s ===\n" RESET, VERSION);
@@ -213,48 +204,32 @@ int main(int argc, char **argv)
     char hash[65] = {0};
     sha256_string(ctx.f, hash);
     if (json_out)
-        fprintf(json_out, " \"sha256\": \"%s\",\n", hash);
+        fprintf(json_out, "  \"sha256\": \"%s\",\n", hash);
     else
         printf("SHA256      : %s\n", hash);
 
-    // Total entropy
     double ent = calculate_total_entropy(ctx.f);
     if (json_out)
-        fprintf(json_out, " \"entropy\": %.6f,\n", ent);
+        fprintf(json_out, "  \"entropy\": %.6f,\n", ent);
     else
         printf("Total Entropy : %.4f\n\n", ent);
 
-    // Section entropy 
     if (cfg.show_section_entropy)
         print_section_entropy(&ctx, json_out);
-
-    // Section headers 
     if (cfg.show_section_headers)
         print_section_headers(&ctx, json_out);
-
-    // Strings + Heuristics
     if (cfg.show_strings)
         print_strings_and_heuristics(ctx.f, json_out);
-
-    // Relocations
     if (cfg.show_relocations)
         print_relocations(ctx.f, &ctx.ehdr, ctx.shdrs, ctx.shstrtab, json_out);
-
-    // Dependencies
     if (cfg.show_dependencies)
         print_dependencies(&ctx, json_out);
-
-    // Symbols
     if (cfg.show_symbols)
-        print_symbols(&ctx, 100, json_out);  // Limit 100 symbols
-
-    // Program headers
+        print_symbols(&ctx, MAX_SYMBOLS, json_out);
     if (cfg.show_program_headers)
         print_program_headers(&ctx, json_out);
 
-    // Disassembly
     if (cfg.show_disasm) {
-        // Temporarily override output_dir for disassembly
         char *old_output_dir = cfg.output_dir;
         if (output_dir[0] != '\0') {
             cfg.output_dir = output_dir;
@@ -265,16 +240,14 @@ int main(int argc, char **argv)
         }
     }
 
-    // Finalize JSON
     if (json_out) {
-        fprintf(json_out, " \"status\": \"completed\"\n}\n");
+        fprintf(json_out, "  \"status\": \"completed\"\n}\n");
         if (json_out != stdout) {
             fclose(json_out);
             printf(GREEN "JSON output saved to: %s/analysis.json\n" RESET, json_dir);
         }
     }
 
-    // Cleanup
     free_elf_context(&ctx);
     free(cfg.output_dir);
     if (cfg.hex_section) free(cfg.hex_section);

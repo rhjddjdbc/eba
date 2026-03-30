@@ -5,6 +5,49 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef void (*dep_callback_t)(const char *lib, void *userdata);
+
+static void process_dependencies(ElfContext *ctx, dep_callback_t cb, void *userdata) {
+    if (!ctx->dynstr) return;
+
+    size_t str_size;
+    char *dynstr = elf_read_strings(ctx, ctx->dynstr, &str_size);
+    if (!dynstr) return;
+
+    size_t dyn_size;
+    Elf64_Dyn *dyns = elf_read_dynamic(ctx, &dyn_size);
+    if (!dyns) {
+        free(dynstr);
+        return;
+    }
+
+    size_t num = dyn_size / sizeof(Elf64_Dyn);
+    for (size_t i = 0; i < num; i++) {
+        if (dyns[i].d_tag == DT_NEEDED) {
+            cb(&dynstr[dyns[i].d_un.d_val], userdata);
+        }
+    }
+    free(dyns);
+    free(dynstr);
+}
+
+static void json_dep_callback(const char *lib, void *userdata) {
+    static int first = 1;
+    FILE *out = (FILE*)userdata;
+    if (!first) fprintf(out, ",\n");
+    first = 0;
+    fprintf(out, "    \"%s\"", lib);
+}
+
+static void console_dep_callback(const char *lib, void *userdata) {
+    static int first = 1;
+    if (first) {
+        printf("=== Shared Library Dependencies ===\n");
+        first = 0;
+    }
+    printf("  %s\n", lib);
+}
+
 void print_dependencies(ElfContext *ctx, FILE *json_out) {
     if (!ctx->dynstr) {
         if (json_out)
@@ -13,74 +56,13 @@ void print_dependencies(ElfContext *ctx, FILE *json_out) {
             printf("=== Shared Library Dependencies ===\n(No dynamic section found)\n\n");
         return;
     }
-    
-    char *dynstr = malloc(ctx->dynstr->sh_size);
-    if (!dynstr) return;
-    fseek(ctx->f, ctx->dynstr->sh_offset, SEEK_SET);
-    fread(dynstr, 1, ctx->dynstr->sh_size, ctx->f);
-    
-    Elf64_Phdr *phdrs = malloc(ctx->ehdr.e_phnum * sizeof(Elf64_Phdr));
-    if (!phdrs) {
-        free(dynstr);
-        return;
-    }
-    fseek(ctx->f, ctx->ehdr.e_phoff, SEEK_SET);
-    fread(phdrs, sizeof(Elf64_Phdr), ctx->ehdr.e_phnum, ctx->f);
-    
-    Elf64_Off dyn_offset = 0;
-    Elf64_Xword dyn_size = 0;
-    for (int i = 0; i < ctx->ehdr.e_phnum; i++) {
-        if (phdrs[i].p_type == PT_DYNAMIC) {
-            dyn_offset = phdrs[i].p_offset;
-            dyn_size = phdrs[i].p_filesz;
-            break;
-        }
-    }
-    
-    if (!dyn_offset) {
-        if (json_out)
-            fprintf(json_out, "  \"dependencies\": [],\n");
-        else
-            printf("=== Shared Library Dependencies ===\n(No PT_DYNAMIC segment)\n\n");
-        free(phdrs);
-        free(dynstr);
-        return;
-    }
-    
-    Elf64_Dyn *dyns = malloc(dyn_size);
-    if (!dyns) {
-        free(phdrs);
-        free(dynstr);
-        return;
-    }
-    fseek(ctx->f, dyn_offset, SEEK_SET);
-    fread(dyns, 1, dyn_size, ctx->f);
-    
+
     if (json_out) {
         fprintf(json_out, "  \"dependencies\": [\n");
-        int first = 1;
-        for (Elf64_Dyn *d = dyns; d->d_tag != DT_NULL; d++) {
-            if (d->d_tag == DT_NEEDED) {
-                if (!first) fprintf(json_out, ",\n");
-                first = 0;
-                fprintf(json_out, "    \"%s\"", &dynstr[d->d_un.d_val]);
-            }
-        }
+        process_dependencies(ctx, json_dep_callback, json_out);
         fprintf(json_out, "\n  ],\n");
     } else {
-        printf("=== Shared Library Dependencies ===\n");
-        int count = 0;
-        for (Elf64_Dyn *d = dyns; d->d_tag != DT_NULL; d++) {
-            if (d->d_tag == DT_NEEDED) {
-                printf("  %s\n", &dynstr[d->d_un.d_val]);
-                count++;
-            }
-        }
-        if (count == 0) printf("  (none)\n");
+        process_dependencies(ctx, console_dep_callback, NULL);
         printf("\n");
     }
-    
-    free(dyns);
-    free(phdrs);
-    free(dynstr);
 }

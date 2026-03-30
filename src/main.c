@@ -16,7 +16,7 @@
 #include "h/relocations.h"
 #include "h/disassembly.h"
 
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 
 static void print_version(void) {
     printf("ELF Binary Analyzer v%s\n", VERSION);
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 
     // Initialize ELF Context
     ElfContext ctx;
-    if (!init_elf_context(&ctx, filename)) {
+    if (init_elf_context(&ctx, filename) != 0) {   // <- FIX: != 0 statt !
         free(cfg.output_dir);
         if (cfg.hex_section) free(cfg.hex_section);
         handle_error("Failed to initialize ELF context", 1);
@@ -224,11 +224,11 @@ int main(int argc, char **argv)
     else
         printf("Total Entropy : %.4f\n\n", ent);
 
-    // Section entropy (neues Feature)
+    // Section entropy 
     if (cfg.show_section_entropy)
         print_section_entropy(&ctx, json_out);
 
-    // Section headers (neues Feature)
+    // Section headers 
     if (cfg.show_section_headers)
         print_section_headers(&ctx, json_out);
 

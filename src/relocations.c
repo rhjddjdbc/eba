@@ -17,36 +17,31 @@ void print_relocations(FILE *f, Elf64_Ehdr *ehdr, Elf64_Shdr *shdrs, char *shstr
             Elf64_Shdr *symtab = &shdrs[relsec->sh_link];
             if (symtab->sh_link >= ehdr->e_shnum) continue;
             Elf64_Shdr *strtab = &shdrs[symtab->sh_link];
-
-            char *strdata = malloc(strtab->sh_size);
-            Elf64_Sym *symdata = malloc(symtab->sh_size);
-            if (!strdata || !symdata) {
-                free(strdata); 
-                free(symdata);
-                continue;
-            }
             
+            char *strdata = NULL;
+            Elf64_Sym *symdata = NULL;
             long original_pos = ftell(f);
+            
+            strdata = malloc(strtab->sh_size);
+            if (!strdata) goto cleanup_reloc;
+            
+            symdata = malloc(symtab->sh_size);
+            if (!symdata) goto cleanup_reloc;
+            
             fseek(f, strtab->sh_offset, SEEK_SET);
-            if (fread(strdata, 1, strtab->sh_size, f) != strtab->sh_size) {
-                free(strdata);
-                free(symdata);
-                continue;
-            }
+            if (fread(strdata, 1, strtab->sh_size, f) != strtab->sh_size) goto cleanup_reloc;
+            
             fseek(f, symtab->sh_offset, SEEK_SET);
-            if (fread(symdata, 1, symtab->sh_size, f) != symtab->sh_size) {
-                free(strdata);
-                free(symdata);
-                continue;
-            }
-
+            if (fread(symdata, 1, symtab->sh_size, f) != symtab->sh_size) goto cleanup_reloc;
+            
             size_t entry_size = (relsec->sh_type == SHT_RELA) ? sizeof(Elf64_Rela) : sizeof(Elf64_Rel);
             size_t num = relsec->sh_size / entry_size;
-
+            
             for (size_t j = 0; j < num; j++) {
                 if (!first_rel) fprintf(json_out, ",\n");
                 first_rel = 0;
                 fprintf(json_out, "    { \"section\": \"%s\", ", &shstrtab[relsec->sh_name]);
+                
                 if (relsec->sh_type == SHT_RELA) {
                     Elf64_Rela rela;
                     fseek(f, relsec->sh_offset + j * sizeof(Elf64_Rela), SEEK_SET);
@@ -69,14 +64,15 @@ void print_relocations(FILE *f, Elf64_Ehdr *ehdr, Elf64_Shdr *shdrs, char *shstr
                             rel.r_offset, name, ELF64_R_TYPE(rel.r_info));
                 }
             }
+            
+        cleanup_reloc:
             free(strdata);
             free(symdata);
             fseek(f, original_pos, SEEK_SET);
         }
         fprintf(json_out, "\n  ],\n");
     } else {
-        // Console output
-        printf("=== Relocations ===\n");
+        // Console output (similar cleanup pattern)
         for (int i = 0; i < ehdr->e_shnum; i++) {
             Elf64_Shdr *relsec = &shdrs[i];
             if (relsec->sh_type != SHT_RELA && relsec->sh_type != SHT_REL) continue;
@@ -84,34 +80,28 @@ void print_relocations(FILE *f, Elf64_Ehdr *ehdr, Elf64_Shdr *shdrs, char *shstr
             Elf64_Shdr *symtab = &shdrs[relsec->sh_link];
             if (symtab->sh_link >= ehdr->e_shnum) continue;
             Elf64_Shdr *strtab = &shdrs[symtab->sh_link];
-
-            char *strdata = malloc(strtab->sh_size);
-            Elf64_Sym *symdata = malloc(symtab->sh_size);
-            if (!strdata || !symdata) {
-                free(strdata); 
-                free(symdata);
-                continue;
-            }
             
+            char *strdata = NULL;
+            Elf64_Sym *symdata = NULL;
             long original_pos = ftell(f);
+            
+            strdata = malloc(strtab->sh_size);
+            if (!strdata) goto cleanup_reloc_console;
+            
+            symdata = malloc(symtab->sh_size);
+            if (!symdata) goto cleanup_reloc_console;
+            
             fseek(f, strtab->sh_offset, SEEK_SET);
-            if (fread(strdata, 1, strtab->sh_size, f) != strtab->sh_size) {
-                free(strdata);
-                free(symdata);
-                continue;
-            }
+            if (fread(strdata, 1, strtab->sh_size, f) != strtab->sh_size) goto cleanup_reloc_console;
+            
             fseek(f, symtab->sh_offset, SEEK_SET);
-            if (fread(symdata, 1, symtab->sh_size, f) != symtab->sh_size) {
-                free(strdata);
-                free(symdata);
-                continue;
-            }
-
+            if (fread(symdata, 1, symtab->sh_size, f) != symtab->sh_size) goto cleanup_reloc_console;
+            
             size_t entry_size = (relsec->sh_type == SHT_RELA) ? sizeof(Elf64_Rela) : sizeof(Elf64_Rel);
             size_t num = relsec->sh_size / entry_size;
             printf("Section: %s (%zu entries)\n", &shstrtab[relsec->sh_name], num);
             printf("%-18s | %-20s | %-8s | Addend\n", "Offset", "Symbol", "Type");
-
+            
             for (size_t j = 0; j < num; j++) {
                 if (relsec->sh_type == SHT_RELA) {
                     Elf64_Rela rela;
@@ -135,6 +125,8 @@ void print_relocations(FILE *f, Elf64_Ehdr *ehdr, Elf64_Shdr *shdrs, char *shstr
                            rel.r_offset, name, ELF64_R_TYPE(rel.r_info));
                 }
             }
+            
+        cleanup_reloc_console:
             free(strdata);
             free(symdata);
             fseek(f, original_pos, SEEK_SET);

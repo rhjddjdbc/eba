@@ -6,34 +6,26 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-int get_config_bool(const char *filename, const char *key, int default_value)
-{
+int get_config_bool(const char *filename, const char *key, int default_value) {
     if (!filename || !key) return default_value;
-    
     FILE *fp = fopen(filename, "r");
     if (!fp) return default_value;
-    
     char line[256];
     size_t key_len = strlen(key);
     int result = default_value;
-    
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\n")] = '\0';
-        
         if (line[0] == '\0' || line[0] == '#') continue;
-        
         if (strncmp(line, key, key_len) == 0) {
             char *eq = strchr(line, '=');
             if (!eq) continue;
             char *val = eq + 1;
             while (*val == ' ' || *val == '\t') val++;
-            
             for (char *p = val; *p; p++) *p = tolower(*p);
-            if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0 || strcmp(val, "yes") == 0) {
+            if (strcmp(val, "true") == 0 || strcmp(val, "1") == 0 || strcmp(val, "yes") == 0)
                 result = 1;
-            } else if (strcmp(val, "false") == 0 || strcmp(val, "0") == 0 || strcmp(val, "no") == 0) {
+            else if (strcmp(val, "false") == 0 || strcmp(val, "0") == 0 || strcmp(val, "no") == 0)
                 result = 0;
-            }
             break;
         }
     }
@@ -42,11 +34,24 @@ int get_config_bool(const char *filename, const char *key, int default_value)
 }
 
 static uint64_t parse_target(const char *op_str, uint64_t current_addr) {
-    (void)current_addr; // not used in simple hex parsing
     if (!op_str) return 0;
+    const char *s = op_str;
+    while (isspace((unsigned char)*s)) s++;
+    char *rip = strstr(s, "(%rip)");
+    if (rip) {
+        char *end;
+        char num[32];
+        size_t len = rip - s;
+        if (len >= sizeof(num)) len = sizeof(num)-1;
+        strncpy(num, s, len);
+        num[len] = '\0';
+        long offset = strtol(num, &end, 0);
+        if (end == num) offset = 0;
+        return current_addr + offset;
+    }
     char *endptr;
-    uint64_t target = strtoull(op_str, &endptr, 16);
-    if (endptr != op_str) return target;
+    uint64_t target = strtoull(s, &endptr, 0);
+    if (endptr != s) return target;
     return 0;
 }
 
@@ -70,19 +75,15 @@ static void add_edge(CFGEdge **list, size_t *count, size_t *capacity,
 
 size_t generate_cfg(cs_insn *insn, size_t count, CFGEdge **edges) {
     if (!insn || count == 0 || !edges) return 0;
-    
     *edges = NULL;
     size_t edge_count = 0;
     size_t capacity = 0;
-    
     for (size_t i = 0; i < count; i++) {
         const char *mnemonic = insn[i].mnemonic;
         uint64_t from = insn[i].address;
         uint64_t fallthrough = (i + 1 < count && insn[i+1].address != 0) ? insn[i+1].address : 0;
-        
-        if (strcmp(mnemonic, "ret") == 0 || strcmp(mnemonic, "retq") == 0) {
+        if (strcmp(mnemonic, "ret") == 0 || strcmp(mnemonic, "retq") == 0)
             continue;
-        }
         else if (strcmp(mnemonic, "jmp") == 0) {
             uint64_t target = parse_target(insn[i].op_str, from);
             if (target) add_edge(edges, &edge_count, &capacity, from, target, "jmp");
